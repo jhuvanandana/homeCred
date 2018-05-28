@@ -45,19 +45,19 @@ bbGrp  = bbData.groupby(by='SK_ID_BUREAU').mean()
 del bbData
 
 pcbData = pd.read_csv('data/POS_CASH_BALANCE.csv')
-pcbGrp  = pcbData.groupby(by='SK_ID_CURR').sum()
+pcbGrp  = pcbData.groupby(by='SK_ID_CURR').mean()
 del pcbData
 
 ccbData = pd.read_csv('data/credit_card_balance.csv')
-ccbGrp  = ccbData.groupby(by='SK_ID_CURR').sum()
+ccbGrp  = ccbData.groupby(by='SK_ID_CURR').mean()
 del ccbData
 
 paData = pd.read_csv('data/previous_application.csv')
-paGrp  = paData.groupby(by='SK_ID_CURR').sum()
+paGrp  = paData.groupby(by='SK_ID_CURR').mean()
 del paData
 
 ipData = pd.read_csv('data/installments_payments.csv')
-ipGrp  = ipData.groupby(by='SK_ID_CURR').sum()
+ipGrp  = ipData.groupby(by='SK_ID_CURR').mean()
 del ipData
 
 
@@ -306,7 +306,10 @@ allNameList = list(X_test)
 #sortIdx  = np.argsort(aucVec)
 #mapNames = map(lambda k: allNameList[k], sortIdx[-20:])
 
-idx = feature_selection.SelectFromModel(svm.LinearSVC())
+svc = svm.LinearSVC()
+featSel = feature_selection.SelectFromModel(svc)
+featSel.fit(X_train, Y_train)
+sortIdx = featSel.get_support(indices=True)-1
 
 mapNames = map(lambda k: allNameList[k], sortIdx)
 colNames = list(mapNames)
@@ -332,7 +335,7 @@ early_stopping = callbacks.EarlyStopping(monitor='val_loss', patience=1, verbose
 pipe = pipeline.Pipeline([
     ('rescale', preprocessing.StandardScaler()),
 #    ('logit',linear_model.LogisticRegression())
-    ('logit', KerasClassifier(build_fn=model, nb_epoch=200, batch_size=100,
+    ('logit', KerasClassifier(build_fn=model, nb_epoch=20, batch_size=128,
                            validation_split=0.2, callbacks=[early_stopping]))
 ])
 
