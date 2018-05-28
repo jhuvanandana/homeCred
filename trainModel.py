@@ -17,6 +17,9 @@ from sklearn import linear_model
 from sklearn import metrics
 from sklearn import pipeline
 from sklearn import preprocessing
+from sklearn import feature_selection
+from sklearn import svm
+from sklearn.ensemble import RandomForestClassifier
 
 from keras import backend as K
 from keras import optimizers
@@ -263,41 +266,49 @@ def freq_item(series, set_list):
 negIdx = Y_train.loc[Y_train==0].index
 posIdx = Y_train.loc[Y_train==1].index
 
-pVec   = []
-aucVec = []
-lr = linear_model.LogisticRegression()
+rf = RandomForestClassifier()
+rf.fit(X_train, Y_train)
 
+featImp = rf.feature_importances_
+sortIdx = np.argsort(featImp)[-50:]
 allNameList = list(X_test)
-nRow = len(Y_train)
-nFeats = len(allNameList)
-for iCol in range(nFeats):
-    colName = allNameList[iCol]
-    print('%d of %d, %s'%(iCol,nFeats,colName))
-    colVar  = X_train[colName]
-    colVar.fillna(0,inplace=True)
-    
-    rsFeat  = np.reshape(np.array(colVar,dtype=colVar.dtype), (nRow,1))
-    lr.fit(rsFeat,Y_train)
-    
-    probs = lr.predict_proba(rsFeat)
-    fpr,tpr,thresh = metrics.roc_curve(Y_train,probs[:,1])
-    aucVec.append(metrics.auc(fpr,tpr))
-    
-    is_binary = len(set(colVar))==2
-    grp0  = colVar.loc[negIdx]
-    grp1  = colVar.loc[posIdx]
-    
-    if is_binary:
-        setTarg = list(set(colVar))
-        mat     = np.column_stack((freq_item(grp0, setTarg), freq_item(grp1, setTarg)))
-        fstat, pval = stats.fisher_exact(mat)
-    else:
-        ustat, pval = stats.mannwhitneyu(grp0,grp1)
-        
-    pVec.append(pval)
-    
-sortIdx  = np.argsort(aucVec)
-mapNames = map(lambda k: allNameList[k], sortIdx[-20:])
+#pVec   = []
+#aucVec = []
+#lr = linear_model.LogisticRegression()
+#nRow = len(Y_train)
+#nFeats = len(allNameList)
+#for iCol in range(nFeats):
+#    colName = allNameList[iCol]
+#    print('%d of %d, %s'%(iCol,nFeats,colName))
+#    colVar  = X_train[colName]
+#    colVar.fillna(0,inplace=True)
+#    
+#    rsFeat  = np.reshape(np.array(colVar,dtype=colVar.dtype), (nRow,1))
+#    lr.fit(rsFeat,Y_train)
+#    
+#    probs = lr.predict_proba(rsFeat)
+#    fpr,tpr,thresh = metrics.roc_curve(Y_train,probs[:,1])
+#    aucVec.append(metrics.auc(fpr,tpr))
+#    
+#    is_binary = len(set(colVar))==2
+#    grp0  = colVar.loc[negIdx]
+#    grp1  = colVar.loc[posIdx]
+#    
+#    if is_binary:
+#        setTarg = list(set(colVar))
+#        mat     = np.column_stack((freq_item(grp0, setTarg), freq_item(grp1, setTarg)))
+#        fstat, pval = stats.fisher_exact(mat)
+#    else:
+#        ustat, pval = stats.mannwhitneyu(grp0,grp1)
+#        
+#    pVec.append(pval)
+#    
+#sortIdx  = np.argsort(aucVec)
+#mapNames = map(lambda k: allNameList[k], sortIdx[-20:])
+
+idx = feature_selection.SelectFromModel(svm.LinearSVC())
+
+mapNames = map(lambda k: allNameList[k], sortIdx)
 colNames = list(mapNames)
 
 # user tensorflow backend
@@ -320,10 +331,10 @@ early_stopping = callbacks.EarlyStopping(monitor='val_loss', patience=1, verbose
 
 pipe = pipeline.Pipeline([
     ('rescale', preprocessing.StandardScaler()),
-    ('nn', KerasClassifier(build_fn=model, nb_epoch=20, batch_size=128,
+#    ('logit',linear_model.LogisticRegression())
+    ('logit', KerasClassifier(build_fn=model, nb_epoch=200, batch_size=100,
                            validation_split=0.2, callbacks=[early_stopping]))
 ])
-
 
 print('Beginning fit with: %d variables'%(len(colNames)))
 pipe.fit(X_train[colNames], Y_train)
@@ -339,5 +350,5 @@ predTe = probTe[:, 1]
 outDf = pd.DataFrame(np.column_stack((dfTe.SK_ID_CURR, predTe)), columns=['SK_ID_CURR', 'TARGET'])
 outDf.SK_ID_CURR = outDf.SK_ID_CURR.astype(np.int32)
 outDf.to_csv('output/prediction_lm.csv', index=False)
-#
+
 print('Script took ', datetime.now() - start, ' HH:MM:SS.SSSSSS')
