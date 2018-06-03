@@ -19,7 +19,7 @@ from sklearn import pipeline
 from sklearn import preprocessing
 from sklearn import feature_selection
 from sklearn import svm
-from sklearn.ensemble import RandomForestClassifier
+from sklearn import ensemble
 
 from keras import backend as K
 from keras import optimizers
@@ -37,29 +37,28 @@ dfTr = pd.read_csv('data/application_train.csv')
 dfTe = pd.read_csv('data/application_test.csv')
 
 buData = pd.read_csv('data/bureau.csv')
-buGrp = buData.groupby(by='SK_ID_CURR').mean()
+buGrp = buData.groupby(by='SK_ID_CURR').median()
 del buData
 
 bbData = pd.read_csv('data/bureau_balance.csv')
-bbGrp  = bbData.groupby(by='SK_ID_BUREAU').mean()
+bbGrp  = bbData.groupby(by='SK_ID_BUREAU').median()
 del bbData
 
 pcbData = pd.read_csv('data/POS_CASH_BALANCE.csv')
-pcbGrp  = pcbData.groupby(by='SK_ID_CURR').mean()
+pcbGrp  = pcbData.groupby(by='SK_ID_CURR').median()
 del pcbData
 
 ccbData = pd.read_csv('data/credit_card_balance.csv')
-ccbGrp  = ccbData.groupby(by='SK_ID_CURR').mean()
+ccbGrp  = ccbData.groupby(by='SK_ID_CURR').median()
 del ccbData
 
 paData = pd.read_csv('data/previous_application.csv')
-paGrp  = paData.groupby(by='SK_ID_CURR').mean()
+paGrp  = paData.groupby(by='SK_ID_CURR').median()
 del paData
 
 ipData = pd.read_csv('data/installments_payments.csv')
-ipGrp  = ipData.groupby(by='SK_ID_CURR').mean()
+ipGrp  = ipData.groupby(by='SK_ID_CURR').median()
 del ipData
-
 
 mrgGrp = buGrp.join(bbGrp, on='SK_ID_BUREAU', how='left', rsuffix='_bb')
 mrgGrp = mrgGrp.join(pcbGrp, on='SK_ID_CURR', how='left', rsuffix='_pc')
@@ -254,7 +253,7 @@ obj_categ = X_train.select_dtypes(include=['category']).copy()
 for colName in list(obj_categ):
     X_train[colName] = X_train[colName].cat.codes
     X_test[colName]  = X_test[colName].cat.codes
-
+    
 ## model fitting
 def freq_item(series, set_list):
     series = list(np.array(series,dtype=np.float64))
@@ -266,12 +265,13 @@ def freq_item(series, set_list):
 negIdx = Y_train.loc[Y_train==0].index
 posIdx = Y_train.loc[Y_train==1].index
 
-rf = RandomForestClassifier()
-rf.fit(X_train, Y_train)
+allNameList = list(X_test)
+rf = ensemble.GradientBoostingClassifier()
+rf.fit(X_train[allNameList], Y_train)
 
 featImp = rf.feature_importances_
-sortIdx = np.argsort(featImp)[-50:]
-allNameList = list(X_test)
+sortIdx = np.argsort(featImp)[-20:]
+
 #pVec   = []
 #aucVec = []
 #lr = linear_model.LogisticRegression()
@@ -299,17 +299,15 @@ allNameList = list(X_test)
 #        mat     = np.column_stack((freq_item(grp0, setTarg), freq_item(grp1, setTarg)))
 #        fstat, pval = stats.fisher_exact(mat)
 #    else:
-#        ustat, pval = stats.mannwhitneyu(grp0,grp1)
+#        if stats.shapiro(grp0)[1]<0.05 or stats.shapiro(grp0)[1]<0.05:
+#            ustat, pval = stats.mannwhitneyu(grp0,grp1)
+#        else:
+#            tstat, pval = stats.ttest_ind(grp0,grp1)
 #        
 #    pVec.append(pval)
 #    
 #sortIdx  = np.argsort(aucVec)
-#mapNames = map(lambda k: allNameList[k], sortIdx[-20:])
-
-svc = svm.LinearSVC()
-featSel = feature_selection.SelectFromModel(svc)
-featSel.fit(X_train, Y_train)
-sortIdx = featSel.get_support(indices=True)-1
+#mapNames = map(lambda k: allNameList[k], sortIdx[-10:])
 
 mapNames = map(lambda k: allNameList[k], sortIdx)
 colNames = list(mapNames)
@@ -336,7 +334,7 @@ pipe = pipeline.Pipeline([
     ('rescale', preprocessing.StandardScaler()),
 #    ('logit',linear_model.LogisticRegression())
     ('logit', KerasClassifier(build_fn=model, nb_epoch=20, batch_size=128,
-                           validation_split=0.2, callbacks=[early_stopping]))
+                           validation_split=0.25, callbacks=[early_stopping]))
 ])
 
 print('Beginning fit with: %d variables'%(len(colNames)))
