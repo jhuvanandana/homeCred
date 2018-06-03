@@ -265,80 +265,81 @@ def freq_item(series, set_list):
 negIdx = Y_train.loc[Y_train==0].index
 posIdx = Y_train.loc[Y_train==1].index
 
-allNameList = list(X_test)
-rf = ensemble.GradientBoostingClassifier()
-rf.fit(X_train[allNameList], Y_train)
+#featImp = rf.feature_importances_
+#sortIdx = np.argsort(featImp)[-20:]
 
-featImp = rf.feature_importances_
-sortIdx = np.argsort(featImp)[-20:]
-
-#pVec   = []
-#aucVec = []
-#lr = linear_model.LogisticRegression()
-#nRow = len(Y_train)
-#nFeats = len(allNameList)
-#for iCol in range(nFeats):
-#    colName = allNameList[iCol]
-#    print('%d of %d, %s'%(iCol,nFeats,colName))
-#    colVar  = X_train[colName]
-#    colVar.fillna(0,inplace=True)
-#    
-#    rsFeat  = np.reshape(np.array(colVar,dtype=colVar.dtype), (nRow,1))
-#    lr.fit(rsFeat,Y_train)
-#    
-#    probs = lr.predict_proba(rsFeat)
-#    fpr,tpr,thresh = metrics.roc_curve(Y_train,probs[:,1])
-#    aucVec.append(metrics.auc(fpr,tpr))
-#    
-#    is_binary = len(set(colVar))==2
-#    grp0  = colVar.loc[negIdx]
-#    grp1  = colVar.loc[posIdx]
-#    
-#    if is_binary:
-#        setTarg = list(set(colVar))
-#        mat     = np.column_stack((freq_item(grp0, setTarg), freq_item(grp1, setTarg)))
-#        fstat, pval = stats.fisher_exact(mat)
-#    else:
-#        if stats.shapiro(grp0)[1]<0.05 or stats.shapiro(grp0)[1]<0.05:
-#            ustat, pval = stats.mannwhitneyu(grp0,grp1)
-#        else:
-#            tstat, pval = stats.ttest_ind(grp0,grp1)
-#        
-#    pVec.append(pval)
-#    
-#sortIdx  = np.argsort(aucVec)
-#mapNames = map(lambda k: allNameList[k], sortIdx[-10:])
+pVec   = []
+aucVec = []
+lr = linear_model.LogisticRegression()
+nRow = len(Y_train)
+nFeats = len(allNameList)
+for iCol in range(nFeats):
+    colName = allNameList[iCol]
+    print('%d of %d, %s'%(iCol,nFeats,colName))
+    colVar  = X_train[colName]
+    colVar.fillna(0,inplace=True)
+    
+    rsFeat  = np.reshape(np.array(colVar,dtype=colVar.dtype), (nRow,1))
+    lr.fit(rsFeat,Y_train)
+    
+    probs = lr.predict_proba(rsFeat)
+    fpr,tpr,thresh = metrics.roc_curve(Y_train,probs[:,1])
+    aucVec.append(metrics.auc(fpr,tpr))
+    
+    is_binary = len(set(colVar))==2
+    grp0  = colVar.loc[negIdx]
+    grp1  = colVar.loc[posIdx]
+    
+    if is_binary:
+        setTarg = list(set(colVar))
+        mat     = np.column_stack((freq_item(grp0, setTarg), freq_item(grp1, setTarg)))
+        fstat, pval = stats.fisher_exact(mat)
+    else:
+        if stats.shapiro(grp0)[1]<0.05 or stats.shapiro(grp0)[1]<0.05:
+            ustat, pval = stats.mannwhitneyu(grp0,grp1)
+        else:
+            tstat, pval = stats.ttest_ind(grp0,grp1)
+        
+    pVec.append(pval)
+    
+sortIdx  = np.argsort(aucVec)
+mapNames = map(lambda k: allNameList[k], sortIdx[-10:])
 
 mapNames = map(lambda k: allNameList[k], sortIdx)
 colNames = list(mapNames)
+#
+## user tensorflow backend
+#sess = tf.Session()
+#K.set_session(sess)
+#
+#
+#def model():
+#    model = models.Sequential([
+#        layers.Dense(64, input_dim=X_train[colNames].shape[1], activation='relu'),
+#        layers.Dropout(0.5),
+#        layers.Dense(64, activation='sigmoid'),
+#        layers.Dropout(0.5),
+#        layers.Dense(1, activation='sigmoid')
+#    ])
+#    model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
+#    return model
+#
+#early_stopping = callbacks.EarlyStopping(monitor='val_loss', patience=1, verbose=0, mode='auto')
+#
+#pipe = pipeline.Pipeline([
+#    ('rescale', preprocessing.StandardScaler()),
+#    ('logit', KerasClassifier(build_fn=model, nb_epoch=20, batch_size=128,
+#                           validation_split=0.25, callbacks=[early_stopping]))
+#])
+#
+#print('Beginning fit with: %d variables'%(len(colNames)))
+#pipe.fit(X_train[colNames], Y_train)
 
-# user tensorflow backend
-sess = tf.Session()
-K.set_session(sess)
+allNameList = list(X_test)
+rf = ensemble.GradientBoostingClassifier()
+rf.fit(X_train[colNames], Y_train)
 
-
-def model():
-    model = models.Sequential([
-        layers.Dense(64, input_dim=X_train[colNames].shape[1], activation='relu'),
-        layers.Dropout(0.5),
-        layers.Dense(64, activation='sigmoid'),
-        layers.Dropout(0.5),
-        layers.Dense(1, activation='sigmoid')
-    ])
-    model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-    return model
-
-early_stopping = callbacks.EarlyStopping(monitor='val_loss', patience=1, verbose=0, mode='auto')
-
-pipe = pipeline.Pipeline([
-    ('rescale', preprocessing.StandardScaler()),
-    ('logit', KerasClassifier(build_fn=model, nb_epoch=20, batch_size=128,
-                           validation_split=0.25, callbacks=[early_stopping]))
-])
-
-print('Beginning fit with: %d variables'%(len(colNames)))
-pipe.fit(X_train[colNames], Y_train)
-
+pipe = rf
 probTr = pipe.predict_proba(X_train[colNames])
 fpr, tpr, thresh = metrics.roc_curve(Y_train, probTr[:, 1], pos_label=1)
 aucScore = metrics.auc(fpr, tpr)
