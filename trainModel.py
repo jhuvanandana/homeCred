@@ -37,27 +37,27 @@ dfTr = pd.read_csv('data/application_train.csv')
 dfTe = pd.read_csv('data/application_test.csv')
 
 buData = pd.read_csv('data/bureau.csv')
-buGrp = buData.groupby(by='SK_ID_CURR').median()
+buGrp = buData.groupby(by='SK_ID_CURR').sum()
 del buData
 
 bbData = pd.read_csv('data/bureau_balance.csv')
-bbGrp  = bbData.groupby(by='SK_ID_BUREAU').median()
+bbGrp  = bbData.groupby(by='SK_ID_BUREAU').sum()
 del bbData
 
 pcbData = pd.read_csv('data/POS_CASH_BALANCE.csv')
-pcbGrp  = pcbData.groupby(by='SK_ID_CURR').median()
+pcbGrp  = pcbData.groupby(by='SK_ID_CURR').sum()
 del pcbData
 
 ccbData = pd.read_csv('data/credit_card_balance.csv')
-ccbGrp  = ccbData.groupby(by='SK_ID_CURR').median()
+ccbGrp  = ccbData.groupby(by='SK_ID_CURR').sum()
 del ccbData
 
 paData = pd.read_csv('data/previous_application.csv')
-paGrp  = paData.groupby(by='SK_ID_CURR').median()
+paGrp  = paData.groupby(by='SK_ID_CURR').sum()
 del paData
 
 ipData = pd.read_csv('data/installments_payments.csv')
-ipGrp  = ipData.groupby(by='SK_ID_CURR').median()
+ipGrp  = ipData.groupby(by='SK_ID_CURR').sum()
 del ipData
 
 mrgGrp = buGrp.join(bbGrp, on='SK_ID_BUREAU', how='left', rsuffix='_bb')
@@ -302,11 +302,11 @@ for iCol in range(nFeats):
         
     pVec.append(pval)
     
-sortIdx  = np.argsort(aucVec)
-mapNames = map(lambda k: allNameList[k], sortIdx[-10:])
+#sortIdx  = np.argsort(pVec)
+#mapNames = map(lambda k: allNameList[k], sortIdx[:20])
 
-mapNames = map(lambda k: allNameList[k], sortIdx)
-colNames = list(mapNames)
+#mapNames = map(lambda k: allNameList[k], sortIdx)
+#colNames = list(mapNames)
 #
 ## user tensorflow backend
 #sess = tf.Session()
@@ -335,11 +335,13 @@ colNames = list(mapNames)
 #print('Beginning fit with: %d variables'%(len(colNames)))
 #pipe.fit(X_train[colNames], Y_train)
 
-allNameList = list(X_test)
-rf = ensemble.GradientBoostingClassifier()
-rf.fit(X_train[colNames], Y_train)
 
-pipe = rf
+colNames = list(X_test)
+pipe = pipeline.Pipeline([('rescale',preprocessing.StandardScaler()),
+      ('gbm',ensemble.GradientBoostingClassifier())
+      ])
+pipe.fit(X_train[colNames], Y_train)
+
 probTr = pipe.predict_proba(X_train[colNames])
 fpr, tpr, thresh = metrics.roc_curve(Y_train, probTr[:, 1], pos_label=1)
 aucScore = metrics.auc(fpr, tpr)
