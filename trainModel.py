@@ -332,7 +332,6 @@ early_stopping = callbacks.EarlyStopping(monitor='val_loss', patience=1, verbose
 
 pipe = pipeline.Pipeline([
     ('rescale', preprocessing.StandardScaler()),
-#    ('logit',linear_model.LogisticRegression())
     ('logit', KerasClassifier(build_fn=model, nb_epoch=20, batch_size=128,
                            validation_split=0.25, callbacks=[early_stopping]))
 ])
