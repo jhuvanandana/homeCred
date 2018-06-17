@@ -10,15 +10,10 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-from scipy import stats
-
 from datetime import datetime
-from sklearn import linear_model
 from sklearn import metrics
 from sklearn import pipeline
 from sklearn import preprocessing
-from sklearn import feature_selection
-from sklearn import svm
 from sklearn import ensemble
 
 from keras import backend as K
@@ -291,7 +286,7 @@ if __name__ == '__main__':
     #])
     
     pipe = pipeline.Pipeline([('rescale',preprocessing.StandardScaler()),
-          ('gbm',ensemble.GradientBoostingClassifier(max_depth=5,n_estamators=150))
+          ('gbm',ensemble.GradientBoostingClassifier(max_depth=5,n_estimators=250))
           ])
     pipe.fit(X_train[colNames], Y_train)
     
