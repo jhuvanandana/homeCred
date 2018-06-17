@@ -37,23 +37,23 @@ if __name__ == '__main__':
     dfTe = pd.read_csv('data/application_test.csv')
     
     buData = pd.read_csv('data/bureau.csv')
-    buGrp = buData.groupby(by='SK_ID_CURR').mean()
+    buGrp = buData.groupby(by='SK_ID_CURR').sum()
     del buData
     
     bbData = pd.read_csv('data/bureau_balance.csv')
-    bbGrp  = bbData.groupby(by='SK_ID_BUREAU').mean()
+    bbGrp  = bbData.groupby(by='SK_ID_BUREAU').sum()
     del bbData
     
     pcbData = pd.read_csv('data/POS_CASH_BALANCE.csv')
-    pcbGrp  = pcbData.groupby(by='SK_ID_CURR').mean()
+    pcbGrp  = pcbData.groupby(by='SK_ID_CURR').sum()
     del pcbData
     
     ccbData = pd.read_csv('data/credit_card_balance.csv')
-    ccbGrp  = ccbData.groupby(by='SK_ID_CURR').mean()
+    ccbGrp  = ccbData.groupby(by='SK_ID_CURR').sum()
     del ccbData
     
     paData = pd.read_csv('data/previous_application.csv')
-    paGrp  = paData.groupby(by='SK_ID_CURR').mean()
+    paGrp  = paData.groupby(by='SK_ID_CURR').sum()
     del paData
     
     ipData = pd.read_csv('data/installments_payments.csv')
@@ -265,54 +265,11 @@ if __name__ == '__main__':
     negIdx = Y_train.loc[Y_train==0].index
     posIdx = Y_train.loc[Y_train==1].index
     
-    #featImp = rf.feature_importances_
-    #sortIdx = np.argsort(featImp)[-20:]
-    
-    pVec   = []
-    aucVec = []
-    lr = linear_model.LogisticRegression()
-    nRow = len(Y_train)
-    allNameList = list(X_test)
-    nFeats = len(allNameList)
-    for iCol in range(nFeats):
-        colName = allNameList[iCol]
-        print('%d of %d, %s'%(iCol,nFeats,colName))
-        colVar  = X_train[colName]
-        colVar.fillna(0,inplace=True)
-        
-        rsFeat  = np.reshape(np.array(colVar,dtype=colVar.dtype), (nRow,1))
-        lr.fit(rsFeat,Y_train)
-        
-        probs = lr.predict_proba(rsFeat)
-        fpr,tpr,thresh = metrics.roc_curve(Y_train,probs[:,1])
-        aucVec.append(metrics.auc(fpr,tpr))
-        
-        is_binary = len(set(colVar))==2
-        grp0  = colVar.loc[negIdx]
-        grp1  = colVar.loc[posIdx]
-        
-        if is_binary:
-            setTarg = list(set(colVar))
-            mat     = np.column_stack((freq_item(grp0, setTarg), freq_item(grp1, setTarg)))
-            fstat, pval = stats.fisher_exact(mat)
-        else:
-            if stats.shapiro(grp0)[1]<0.05 or stats.shapiro(grp0)[1]<0.05:
-                ustat, pval = stats.mannwhitneyu(grp0,grp1)
-            else:
-                tstat, pval = stats.ttest_ind(grp0,grp1)
-            
-        pVec.append(pval)
+    colNames = list(X_test)
 
-#    mapNames = map(lambda k: allNameList[k], sortIdx)
-    sortIdx  = np.argsort(pVec)
-    mapNames = map(lambda k: allNameList[k], sortIdx)
-    colNames = list(mapNames)
-    #colNames = list(X_test)
-    #
     ## user tensorflow backend
     #sess = tf.Session()
     #K.set_session(sess)
-    #
     #
     #def model():
     #    model = models.Sequential([
@@ -332,12 +289,9 @@ if __name__ == '__main__':
     #    ('logit', KerasClassifier(build_fn=model, nb_epoch=20, batch_size=128,
     #                           validation_split=0.25, callbacks=[early_stopping]))
     #])
-    #
-    #print('Beginning fit with: %d variables'%(len(colNames)))
-    #pipe.fit(X_train[colNames], Y_train)
     
     pipe = pipeline.Pipeline([('rescale',preprocessing.StandardScaler()),
-          ('gbm',ensemble.GradientBoostingClassifier())
+          ('gbm',ensemble.GradientBoostingClassifier(max_depth=5,n_estamators=150))
           ])
     pipe.fit(X_train[colNames], Y_train)
     
