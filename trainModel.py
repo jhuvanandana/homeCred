@@ -52,7 +52,7 @@ if __name__ == '__main__':
     del paData
     
     ipData = pd.read_csv('data/installments_payments.csv')
-    ipGrp  = ipData.groupby(by='SK_ID_CURR').mean()
+    ipGrp  = ipData.groupby(by='SK_ID_CURR').sum()
     del ipData
     
     mrgGrp = buGrp.join(bbGrp, on='SK_ID_BUREAU', how='left', rsuffix='_bb')
@@ -286,7 +286,7 @@ if __name__ == '__main__':
     #])
     
     pipe = pipeline.Pipeline([('rescale',preprocessing.StandardScaler()),
-          ('gbm',ensemble.GradientBoostingClassifier(max_depth=5,n_estimators=250))
+          ('gbm',ensemble.GradientBoostingClassifier(max_depth=5,n_estimators=200))
           ])
     pipe.fit(X_train[colNames], Y_train)
     
