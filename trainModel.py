@@ -17,12 +17,13 @@ from sklearn import preprocessing
 from sklearn import ensemble
 
 from keras import backend as K
-from keras import optimizers
 from keras import callbacks
 from keras import layers
 from keras import models
+from keras.wrappers.scikit_learn import KerasClassifier
 
 if __name__ == '__main__':
+
     ## initialise
     start = datetime.now()
     os.chdir('C:/Users/Jacqueline/Documents/DataScience/Projects/homeCred')
@@ -263,43 +264,42 @@ if __name__ == '__main__':
     colNames = list(X_test)
 
     ## user tensorflow backend
-    #sess = tf.Session()
-    #K.set_session(sess)
-    #
-    #def model():
-    #    model = models.Sequential([
-    #        layers.Dense(64, input_dim=X_train[colNames].shape[1], activation='relu'),
-    #        layers.Dropout(0.5),
-    #        layers.Dense(64, activation='sigmoid'),
-    #        layers.Dropout(0.5),
-    #        layers.Dense(1, activation='sigmoid')
-    #    ])
-    #    model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-    #    return model
-    #
-    #early_stopping = callbacks.EarlyStopping(monitor='val_loss', patience=1, verbose=0, mode='auto')
-    #
-    #pipe = pipeline.Pipeline([
-    #    ('rescale', preprocessing.StandardScaler()),
-    #    ('logit', KerasClassifier(build_fn=model, nb_epoch=20, batch_size=128,
-    #                           validation_split=0.25, callbacks=[early_stopping]))
-    #])
+    sess = tf.Session()
+    K.set_session(sess)
     
-    pipe = pipeline.Pipeline([('rescale',preprocessing.StandardScaler()),
-          ('gbm',ensemble.GradientBoostingClassifier(max_depth=5,n_estimators=200))
-          ])
-    pipe.fit(X_train[colNames], Y_train)
+    for i_depth in [3,5,8]:
+        for i_estim in [50,100,120,150,200]:
     
-    probTr = pipe.predict_proba(X_train[colNames])
-    fpr, tpr, thresh = metrics.roc_curve(Y_train, probTr[:, 1], pos_label=1)
-    aucScore = metrics.auc(fpr, tpr)
-    print(aucScore)
-    
-    probTe = pipe.predict_proba(X_test[colNames])
-    predTe = probTe[:, 1]
-    
-    outDf = pd.DataFrame(np.column_stack((dfTe.SK_ID_CURR, predTe)), columns=['SK_ID_CURR', 'TARGET'])
-    outDf.SK_ID_CURR = outDf.SK_ID_CURR.astype(np.int32)
-    outDf.to_csv('output/prediction_lm.csv', index=False)
+            def model():
+                model = ensemble.GradientBoostingClassifier(max_depth=i_depth,n_estimators=i_estim)
+        #        model = models.Sequential([
+        #            layers.Dense(64, input_dim=X_train[colNames].shape[1], activation='relu'),
+        #            layers.Dropout(0.5),
+        #            layers.Dense(64, activation='sigmoid'),
+        #            layers.Dropout(0.5),
+        #            layers.Dense(1, activation='sigmoid')
+        #        ])
+        #        model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
+                return model
+            
+            
+            pipe = pipeline.Pipeline([
+                ('rescale', preprocessing.StandardScaler()),
+                ('classifier', model())
+            ])    
+        
+            pipe.fit(X_train[colNames], Y_train)
+            
+            probTr = pipe.predict_proba(X_train[colNames])
+            fpr, tpr, thresh = metrics.roc_curve(Y_train, probTr[:, 1], pos_label=1)
+            aucScore = metrics.auc(fpr, tpr)
+            print('Depth: %d, Estimators: %d, AUC: %0.3f'%(i_depth,i_estim,aucScore))
+            
+            probTe = pipe.predict_proba(X_test[colNames])
+            predTe = probTe[:, 1]
+            
+            outDf = pd.DataFrame(np.column_stack((dfTe.SK_ID_CURR, predTe)), columns=['SK_ID_CURR', 'TARGET'])
+            outDf.SK_ID_CURR = outDf.SK_ID_CURR.astype(np.int32)
+            outDf.to_csv('output/prediction_rfc-%dd-%de.csv'%(i_depth,i_estim), index=False)
 
 print('Script took ', datetime.now() - start, ' HH:MM:SS.SSSSSS')
